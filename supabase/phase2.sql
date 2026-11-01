@@ -158,6 +158,9 @@ declare
   v_couple uuid := public.my_couple_id();
 begin
   if v_couple is null then return; end if;
+  -- Both phones load coupons and the wheel at once; serialise per couple so
+  -- the "already seeded?" checks below can't both pass.
+  perform pg_advisory_xact_lock(hashtext('couple-defaults:' || v_couple::text));
 
   if not exists (select 1 from public.coupons where couple_id = v_couple) then
     insert into public.coupons (couple_id, title, emoji, description, cost_coins, created_by) values
@@ -305,11 +308,35 @@ grant update (listened_at, transcript) on public.voice_notes to authenticated;
 revoke update on public.memories from authenticated;
 grant update (caption) on public.memories to authenticated;
 
--- Tasks: status flow is enforced here so the UI can't skip steps.
+-- Tasks: the status flow and who-did-what fields are enforced here on EVERY
+-- write, so no client can insert a pre-finished task, re-point claimed_by,
+-- or raise the reward after someone has claimed it.
 create or replace function public.guard_task_flow()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if auth.uid() is null then return new; end if;            -- service role / SQL editor
+
+  if tg_op = 'INSERT' then
+    new.status := 'open';
+    new.created_by := auth.uid();
+    new.claimed_by := null;
+    new.approved_by := null;
+    new.completed_at := null;
+    return new;
+  end if;
+
+  -- UPDATE: bookkeeping fields only change through the transitions below.
+  new.created_by := old.created_by;
+  new.claimed_by := old.claimed_by;
+  new.approved_by := old.approved_by;
+  new.completed_at := old.completed_at;
+  if old.status <> 'open' and new.reward_coins is distinct from old.reward_coins then
+    raise exception 'the reward is locked once someone claims the task';
+  end if;
+  if old.status = 'approved' then
+    raise exception 'approved tasks are final';
+  end if;
+
   if new.status = old.status then return new; end if;
   if old.status = 'open' and new.status = 'claimed' then
     new.claimed_by := auth.uid();
@@ -332,7 +359,7 @@ end $$;
 
 drop trigger if exists tasks_flow on public.tasks;
 create trigger tasks_flow
-  before update of status on public.tasks
+  before insert or update on public.tasks
   for each row execute function public.guard_task_flow();
 revoke all on function public.guard_task_flow() from public, anon, authenticated;
 
