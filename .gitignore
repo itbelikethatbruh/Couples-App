@@ -1,0 +1,16 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+supabase/.env
+supabase/functions/.env
+*.pem
+*.key
+
+# Local tooling
+node_modules/
+.DS_Store
+.vercel/
+.wrangler/
+supabase/.temp/
+supabase/.branches/

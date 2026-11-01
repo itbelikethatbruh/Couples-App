@@ -1,0 +1,71 @@
+<!doctype html>
+<!--
+  Couples App
+  Copyright (c) 2026. All Rights Reserved.
+  Proprietary and confidential. See LICENSE. Viewing this source does not
+  grant any right to copy, modify, deploy, or distribute it.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Us</title>
+  <meta name="description" content="A private, real-time space for two.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050505">
+
+  <!-- Installed-app behaviour -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Us">
+  <!-- black-translucent lets content draw under the status bar / Dynamic Island -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
+
+  <link rel="modulepreload" href="/js/app.js">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="at-gate">
+  <!-- Depth plane 0: user wallpaper (two layers for cross-fades) + obsidian tint -->
+  <div id="wallpaper" class="wallpaper" aria-hidden="true"></div>
+
+  <!-- Depth plane 1: ambient light field (neon-rose + electric-indigo orbs, grain) -->
+  <div class="ambient" aria-hidden="true">
+    <span class="orb orb-rose"></span>
+    <span class="orb orb-indigo"></span>
+    <span class="orb orb-violet"></span>
+    <span class="grain"></span>
+  </div>
+
+  <!-- Pre-app screens: setup, sign-in, pairing, waiting room -->
+  <main id="gate" class="gate">
+    <div class="center-stage">
+      <div class="boot-spinner" role="status" aria-label="Loading"></div>
+    </div>
+  </main>
+
+  <!-- The app shell -->
+  <div id="app" class="app" hidden>
+    <header id="topbar" class="topbar"></header>
+    <main id="view" class="view" tabindex="-1"></main>
+    <footer id="dock" class="dock-host"></footer>
+  </div>
+
+  <!-- Overlays -->
+  <div id="lock" class="lock-host"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <noscript>
+    <div class="noscript">This app needs JavaScript turned on.</div>
+  </noscript>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
