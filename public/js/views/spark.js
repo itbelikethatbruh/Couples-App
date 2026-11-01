@@ -1,16 +1,21 @@
 /* Couples App · Spark Hub (Phase 1 shell)
  * Copyright (c) 2026. All Rights Reserved. See LICENSE.
  *
- * Phase 1 ships the live core of the hub so the realtime pipeline is real
- * from day one: both partners' status cards, a quick status picker, and the
- * "Send love" ping with a full-screen burst on the partner's screen.
- * Phase 2 adds daily questions, voice notes, dinner matcher, bounty board,
- * coupons and roulette into the slots below.
+ * Live status cards, status picker and "Send love" pings, followed by the
+ * hub modules: blind daily question, voice notes, polaroid calendar, dinner
+ * matcher, bounty board, coupon wallet and date roulette.
  */
 import { store, selectors, toast } from '../store.js';
 import { supabase } from '../supabase.js';
 import { h, icon, pressable, haptic, timeAgo, clear } from '../ui.js';
 import { tilt, burst } from '../fx.js';
+import * as questionMod from '../spark/question.js';
+import * as voiceMod from '../spark/voice.js';
+import * as memoriesMod from '../spark/memories.js';
+import * as dinnerMod from '../spark/dinner.js';
+import * as bountyMod from '../spark/bounty.js';
+import * as couponsMod from '../spark/coupons.js';
+import * as rouletteMod from '../spark/roulette.js';
 
 export const STATUSES = [
   { kind: 'available',       emoji: '🟢', label: 'Available' },
@@ -33,13 +38,17 @@ export function mount(page) {
   const picker = renderStatusPicker();
   const loveBar = renderLoveBar();
 
-  page.append(header, cards, loveBar, picker,
-    h('section.glass.card.roadmap',
-      h('h2.card-title', 'Coming next in Spark'),
-      h('ul.roadmap-list',
-        ['Blind daily question deck', '15-second voice notes', 'Polaroid memory calendar',
-         'Dinner swipe matcher', 'Bounty board, coins & coupons', 'Date night roulette']
-          .map((t) => h('li', t)))));
+  const modules = h('div.spark-modules');
+  page.append(header, cards, loveBar, picker, modules);
+
+  // Each module owns one glass card and its own realtime handlers.
+  const cleanups = [];
+  const parts = [questionMod, voiceMod, memoriesMod, dinnerMod, bountyMod, couponsMod, rouletteMod];
+  for (const mod of parts) {
+    const slot = h('div.spark-slot');
+    modules.append(slot);
+    try { cleanups.push(mod.mount(slot)); } catch (err) { console.error('[spark] module failed', err); }
+  }
 
   const unsub = store.select(
     (s) => ({ me: s.me, partner: s.partner, focus: s.ui.focus, online: selectors.partnerOnline(s), p: s.presence }),
@@ -50,7 +59,7 @@ export function mount(page) {
     online: selectors.partnerOnline(store.get())
   }), 60_000);
 
-  return () => { unsub(); clearInterval(timer); };
+  return () => { unsub(); clearInterval(timer); cleanups.forEach((fn) => typeof fn === 'function' && fn()); };
 }
 
 function greeting() {

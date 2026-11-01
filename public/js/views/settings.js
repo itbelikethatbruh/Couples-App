@@ -302,6 +302,11 @@ function spaceSection() {
     row('Signed in as', h('span.muted', session?.user?.email || '')),
     row('Partner', h('span.muted', partner?.display_name || 'Waiting to join')),
     couple?.invite_code ? row('Invite code', h('code.code', couple.invite_code)) : null,
+    couple ? row('Hide pork dishes', toggle(couple.hide_pork, async (v, input) => {
+      const { error } = await supabase.from('couples').update({ hide_pork: v }).eq('id', couple.id);
+      if (error) { input.checked = !v; toast(error.message, { tone: 'error' }); return; }
+      store.replace('couple', { ...store.get().couple, hide_pork: v });
+    }, 'Hide pork dishes'), 'Filters the dinner swiper for both of you') : null,
     out);
 }
 

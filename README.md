@@ -19,12 +19,27 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 | **Live Spark core** | Both partners' status, mood, and social battery update in real time. *Send love* and *Thinking of you* trigger a heart burst on the other phone. |
 | **PWA** | `manifest.json` (standalone, maskable icons, shortcuts, Android share target) and `sw.js` (app-shell cache, Web Push, notification routing). |
 
+## What's in Phase 2
+
+| Area | What it does |
+| --- | --- |
+| **Blind daily question** | 80 prompts across Fun, Deep, Spicy 🔥 and Future. Your partner's answer never reaches your phone until you've both answered (RLS), then both unlock at once with a comment thread. You can deal up to 3 cards a day. |
+| **Voice notes** | Record up to 15 seconds (AAC on iPhone, Opus on Android), preview, send. "New" badge until your partner plays it. |
+| **Polaroid calendar** | One photo each per day forms the day's dual polaroid. A month grid shows every day you kept. Photos are resized on the phone and stored privately. |
+| **Dinner swiper** | Swipe deck of home meals, restaurants, and anything on your Restaurants wishlist. When you both swipe right on the same card, both phones celebrate at once and you can lock it into the calendar. Pork dishes are included; a **Hide pork** switch in Settings filters them for both of you. |
+| **Bounty board + Love Coins** | Post chores with a coin reward. Claim → done → your partner approves → coins are minted by the database. You can't approve your own task or skip steps. |
+| **Coupon wallet** | Spend coins on coupons (8 defaults, add your own). The database checks your balance. Your partner marks them fulfilled. |
+| **Date night roulette** | 3D wheel of date ideas with weights. A spin on one phone plays on both, then you can lock it into the calendar. |
+| **Partner Vault** | Sizes, go-to orders, favorites, allergies and diet, travel preferences, and more, for each of you. The top switcher picks whose vault is open. Either of you can fill in either vault. Live countdowns to birthdays, anniversaries and trips. |
+
 ## Honest limits
 
 - **The app lock protects the screen, not the data.** WebAuthn and the PIN are checked on the device. Your data is protected on the server by Supabase Auth and RLS. The lock stops someone who picks up an unlocked phone. The public key is saved to `webauthn_credentials`, so a later Edge Function could verify server-side if you want that.
 - **A 4-digit PIN is weak against someone holding the phone with developer tools.** It is hashed (PBKDF2, 210k rounds) with growing delays after wrong tries, but 10,000 combinations is a small space.
 - **Face ID / fingerprint is tied to the exact web address.** If you move from `*.pages.dev` to your own domain, set it up again.
 - **iPhone push notifications only work from the home-screen app** (iOS 16.4+), and permission has to come from a tap. In a regular Safari tab, push does not exist.
+- **Voice notes from iPhone play on Android Chrome and vice versa** on current OS versions. Very old Android WebViews may not play AAC.
+- **Push alerts for answers, voice notes, matches and coupons arrive in Phase 4** with the `send-push` Edge Function. Until then, the other phone sees them live while the app is open.
 - **iPhone haptics:** Safari has no vibration API. The app uses an iOS 18 switch-control trick for a light tap. On older iOS, you get the visual press animation only.
 - **Free-tier limits** (check current numbers on the Supabase pricing page): projects pause after about a week with no activity; there is a 1 GB Storage cap and a cap on the built-in email sender. Use password sign-in day to day so you don't hit the email cap.
 
@@ -33,7 +48,7 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 ### 1. Supabase
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor:** paste all of `supabase/schema.sql`, then run it.
+2. **SQL Editor:** paste all of `supabase/schema.sql` and run it, then do the same with `supabase/phase2.sql`.
 3. **Authentication → Sign In / Providers → Email:** leave Email on. For a two-person app, it's fine to turn off *Confirm email* so sign-up logs you straight in.
 4. **Authentication → Email Templates → Magic Link:** add `{{ .Token }}` to the template body so the *Email me a code* option sends a 6-digit code. The app does not use magic links, because on iPhone they open in Safari, not in the installed app.
 5. **Authentication → URL Configuration:** set *Site URL* to your deployed address.
@@ -88,9 +103,13 @@ public/
     router.js           hash router + dock
     fx.js               parallax, 3D tilt, particle bursts
     ui.js               DOM builder, icons, haptics
-    views/              spark, settings, module placeholders
+    media.js            image compression, uploads, signed URLs
+    sheet.js            bottom sheets, forms, celebration modal
+    spark/              Spark Hub modules (question, voice, memories, dinner, bounty, coupons, roulette)
+    views/              spark, vault, settings, module placeholders
   icons/                app icons
 supabase/schema.sql     database, RLS, realtime, storage
+supabase/phase2.sql     question deck, meal seeds, Spark Hub functions
 ```
 
 No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES module from jsDelivr.
@@ -106,7 +125,7 @@ No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES mo
 
 ## Roadmap
 
-- **Phase 2:** Spark Hub (blind daily questions, voice notes, Polaroid calendar, dinner swipe matcher, bounty board, coupons, roulette) and the Partner Vault.
+- **Phase 2 (done):** Spark Hub and Partner Vault.
 - **Phase 3:** Money (bills, 50/30/20 rings, sinking funds, AI receipt scanner, settle-up) and Smart Wishlists (Amazon scraper, Surprise Lock).
 - **Phase 4:** Events discovery, TikTok vault, AI notes organizer, Edge Functions (`parse-tiktok`, `universal-inbox`, `scan-receipt`, `send-push`), iOS Shortcut guide, Scriptable widget.
 

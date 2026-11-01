@@ -10,7 +10,7 @@ import { h, icon, pressable, haptic, clear } from './ui.js';
 
 export const TABS = [
   { id: 'spark',    label: 'Spark',    icon: 'spark',    load: () => import('./views/spark.js') },
-  { id: 'vault',    label: 'Vault',    icon: 'vault',    load: () => import('./views/placeholder.js') },
+  { id: 'vault',    label: 'Vault',    icon: 'vault',    load: () => import('./views/vault.js') },
   { id: 'money',    label: 'Money',    icon: 'money',    load: () => import('./views/placeholder.js') },
   { id: 'wishlist', label: 'Wishlist', icon: 'wishlist', load: () => import('./views/placeholder.js') },
   { id: 'discover', label: 'Discover', icon: 'discover', load: () => import('./views/placeholder.js') }
