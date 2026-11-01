@@ -60,7 +60,7 @@ exception when duplicate_object then null; end $$;
 -- 1. Generic helpers
 -- ---------------------------------------------------------------------
 create or replace function public.touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = '' as $$
 begin
   new.updated_at := now();
   return new;
@@ -1121,6 +1121,7 @@ begin
     join information_schema.tables tb
       on tb.table_schema = c.table_schema and tb.table_name = c.table_name and tb.table_type = 'BASE TABLE'
     where c.table_schema = 'public' and c.column_name = 'updated_at'
+      and c.table_name not like 'mkcinema%'  -- shared project: leave the other app's tables alone
   loop
     execute format('drop trigger if exists %I on public.%I', t || '_touch', t);
     execute format(
