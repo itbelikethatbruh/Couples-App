@@ -15,6 +15,7 @@ import { CONFIG } from './config.js';
 import { store, selectors, toast } from './store.js';
 import { supabase, unwrap } from './supabase.js';
 import { broadcast } from './realtime.js';
+import { compressImage } from './media.js';
 
 export const SCOPES = ['global', 'lock', 'spark', 'vault', 'money', 'wishlist', 'discover'];
 const BUCKET = 'wallpapers';
@@ -168,7 +169,7 @@ export async function uploadWallpaper(file, scope = 'global') {
   const { me, session } = store.get();
   if (!me?.couple_id) throw new Error('Pair with your partner first');
 
-  const blob = await compressImage(file);
+  const blob = await compressImage(file, { maxEdge: CONFIG.WALLPAPER_MAX_EDGE_PX, quality: CONFIG.WALLPAPER_JPEG_QUALITY });
   const path = `${me.couple_id}/${session.user.id}/${scope}-${Date.now()}.jpg`;
   unwrap(await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: 'image/jpeg',
@@ -201,42 +202,6 @@ export async function resetScope(scope) {
   const row = { ...stripMeta(rowFor(scope)), scope, inherit: true, storage_path: null };
   store.set({ wallpapers: { [scope]: row } });
   unwrap(await supabase.from('wallpaper_settings').upsert(row, { onConflict: 'couple_id,scope' }));
-}
-
-// ---------------------------------------------------------------------------
-// Image pipeline
-// ---------------------------------------------------------------------------
-async function compressImage(file) {
-  const max = CONFIG.WALLPAPER_MAX_EDGE_PX;
-  let source;
-  try {
-    // imageOrientation honours EXIF rotation from phone cameras.
-    source = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch {
-    source = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('This photo format is not supported here. Try a JPEG or PNG.'));
-      img.src = URL.createObjectURL(file);
-    });
-  }
-  const w = source.width;
-  const hgt = source.height;
-  const scale = Math.min(1, max / Math.max(w, hgt));
-  const cw = Math.round(w * scale);
-  const ch = Math.round(hgt * scale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = cw;
-  canvas.height = ch;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(source, 0, 0, cw, ch);
-  source.close?.();
-
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', CONFIG.WALLPAPER_JPEG_QUALITY));
-  if (!blob) throw new Error('Could not process this photo');
-  return blob;
 }
 
 const clampInt = (v, a, b) => Math.round(Math.min(b, Math.max(a, Number(v) || 0)));

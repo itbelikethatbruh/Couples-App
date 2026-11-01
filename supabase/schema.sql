@@ -379,12 +379,10 @@ create table if not exists public.meal_options (
   cuisine           text,
   image_url         text,
   wishlist_item_id  uuid,                                    -- FK added after wishlist_items exists
-  is_pork_free      boolean not null default true,
+  is_pork_free      boolean not null default true,     -- powers the optional 'Hide pork' filter
   active            boolean not null default true,
   created_by        uuid default auth.uid() references auth.users (id) on delete set null,
-  created_at        timestamptz not null default now(),
-  -- Household rule: global seed cards may never contain pork.
-  constraint meal_seeds_pork_free check (couple_id is not null or is_pork_free)
+  created_at        timestamptz not null default now()
 );
 
 create table if not exists public.dinner_swipes (
@@ -523,8 +521,11 @@ begin
   return new;
 end $$;
 
+-- Named tasks_zz_award so it fires after tasks_flow (Phase 2), which sets
+-- approved_by; same-event triggers run in alphabetical order.
 drop trigger if exists tasks_award on public.tasks;
-create trigger tasks_award
+drop trigger if exists tasks_zz_award on public.tasks;
+create trigger tasks_zz_award
   before update of status on public.tasks
   for each row execute function public.award_task_coins();
 

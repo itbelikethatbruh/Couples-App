@@ -5,12 +5,6 @@ import { h } from '../ui.js';
 import { tilt } from '../fx.js';
 
 const PLANS = {
-  vault: {
-    title: 'Vault',
-    phase: 'Phase 2',
-    blurb: "Each other's sizes, orders, favorites, dietary rules and countdowns.",
-    items: ['Ring, shoe, shirt & pants sizes', 'Coffee and fast-food orders', 'Scents, brands & snacks', 'Allergies and dietary rules', 'Seat preferences', 'Birthday, anniversary & trip countdowns']
-  },
   money: {
     title: 'Money',
     phase: 'Phase 3',
