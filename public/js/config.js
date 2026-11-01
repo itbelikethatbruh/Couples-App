@@ -11,8 +11,8 @@
  * Edge Function secrets (Phase 4).
  */
 export const CONFIG = Object.freeze({
-  SUPABASE_URL: 'https://YOUR-PROJECT-REF.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR-SUPABASE-ANON-OR-PUBLISHABLE-KEY',
+  SUPABASE_URL: 'https://wogffhgdixgrayowewnf.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvZ2ZmaGdkaXhncmF5b3dld25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4ODUwMjcsImV4cCI6MjEwODQ2MTAyN30.1ektJPi5fLy2mcHjMdl1zgOm4UlyybkUNGCYbxEpZu0',
   VAPID_PUBLIC_KEY: 'YOUR-VAPID-PUBLIC-KEY',
 
   APP_NAME: 'Us',
