@@ -5,6 +5,7 @@
  * hub modules: blind daily question, voice notes, polaroid calendar, dinner
  * matcher, bounty board, coupon wallet and date roulette.
  */
+import * as alertsMod from '../spark/alerts.js';
 import { store, selectors, toast } from '../store.js';
 import { supabase } from '../supabase.js';
 import { h, icon, pressable, haptic, timeAgo, clear } from '../ui.js';
@@ -39,10 +40,11 @@ export function mount(page) {
   const loveBar = renderLoveBar();
 
   const modules = h('div.spark-modules');
-  page.append(header, cards, loveBar, picker, modules);
+  const alertsSlot = h('div.spark-slot');
+  page.append(header, alertsSlot, cards, loveBar, picker, modules);
 
   // Each module owns one glass card and its own realtime handlers.
-  const cleanups = [];
+  const cleanups = [alertsMod.mount(alertsSlot)];
   const parts = [questionMod, voiceMod, memoriesMod, dinnerMod, bountyMod, couponsMod, rouletteMod];
   for (const mod of parts) {
     const slot = h('div.spark-slot');

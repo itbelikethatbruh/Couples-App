@@ -9,7 +9,7 @@
  *  4. Android share target: forward shared text/links into the app.
  */
 
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.4.1';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -50,6 +50,7 @@ const SHELL_ASSETS = [
   '/js/discover/connect.js',
   '/js/views/settings.js',
   '/js/spark/common.js',
+  '/js/spark/alerts.js',
   '/js/spark/question.js',
   '/js/spark/voice.js',
   '/js/spark/memories.js',
