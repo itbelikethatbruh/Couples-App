@@ -104,6 +104,10 @@ Both values are meant to be public. Leave `VAPID_PUBLIC_KEY` empty; the app fetc
 
 ### 3. Deploy (free)
 
+**Live now:** https://us-couples.drakechristopher1995.workers.dev runs on a Cloudflare Worker (`cloudflare/worker.js`). It serves `public/` straight from this repo at a pinned commit (the Worker's `COMMIT` variable) with the same headers as `public/_headers`, so shipping a new version means pointing `COMMIT` at the new `main`.
+
+Other options:
+
 **Cloudflare Pages:** connect the repo, leave the build command empty, set the output directory to `public`. Security headers come from `public/_headers`.
 
 **Vercel:** import the repo, framework *Other*, no build command. `vercel.json` sets the output directory and headers.
