@@ -8,8 +8,9 @@
  *    In a regular Safari tab, PushManager does not exist.
  * Sending happens server-side: database triggers write each alert to
  * push_outbox, and this phone asks the send-push Edge Function to deliver
- * the alerts it caused (see startPushRelay). The VAPID private key is a
- * Supabase secret; only the public key ships in config.js.
+ * the alerts it caused (see startPushRelay). The signing keys are made
+ * by the server on first use; this file only ever sees the public half,
+ * fetched with the push_public_key() RPC.
  */
 import { CONFIG } from './config.js';
 import { store, toast } from './store.js';
@@ -25,10 +26,22 @@ export function pushSupport() {
   if (!('PushManager' in window) || !('Notification' in window)) {
     return { ok: false, reason: 'Push notifications are not supported here (iOS needs 16.4 or newer).' };
   }
-  if (CONFIG.VAPID_PUBLIC_KEY.startsWith('YOUR-')) {
-    return { ok: false, reason: 'Push is not configured yet: add your VAPID public key to js/config.js.' };
-  }
   return { ok: true, reason: null };
+}
+
+let publicKey = CONFIG.VAPID_PUBLIC_KEY || null;
+/** The server's public signing key. Asks send-push to create the pair if it doesn't exist yet. */
+async function serverKey() {
+  if (publicKey) return publicKey;
+  const fetchKey = async () => unwrap(await supabase.rpc('push_public_key'));
+  let key = await fetchKey();
+  if (!key) {
+    await supabase.functions.invoke('send-push', { body: {} });
+    key = await fetchKey();
+  }
+  if (!key) throw new Error('Alerts aren’t ready on the server yet. Try again in a minute.');
+  publicKey = key;
+  return key;
 }
 
 export const pushPermission = () => ('Notification' in window ? Notification.permission : 'unsupported');
@@ -68,7 +81,7 @@ export async function enablePush() {
 
   const reg = await navigator.serviceWorker.ready;
   let sub = await reg.pushManager.getSubscription();
-  const key = urlB64ToUint8Array(CONFIG.VAPID_PUBLIC_KEY);
+  const key = urlB64ToUint8Array(await serverKey());
 
   // If the server key changed, the old subscription is useless.
   if (sub && sub.options?.applicationServerKey) {

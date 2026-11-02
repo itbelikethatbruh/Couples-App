@@ -85,13 +85,11 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 7. **Edge Functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```sh
    supabase link --project-ref <your-ref>
-   npx web-push generate-vapid-keys          # makes your own push key pair, no account needed
-   supabase secrets set VAPID_PUBLIC_KEY=<public> VAPID_PRIVATE_KEY=<private> VAPID_SUBJECT=https://<your-site>
    supabase functions deploy unfurl-link
    supabase functions deploy send-push
    supabase functions deploy universal-inbox --no-verify-jwt
    ```
-   `universal-inbox` skips the gateway's JWT check because the iPhone Shortcut sends a token instead; the function checks either the JWT or the token itself. None of the functions use the `service_role` key, and none need third-party API keys.
+   `universal-inbox` skips the gateway's JWT check because the iPhone Shortcut sends a token instead; the function checks either the JWT or the token itself. No secrets to set: the first time `send-push` runs it generates the push signing keys and stores them in `push_vapid_keys`, a table only the server can read. That one lookup uses the `service_role` key Supabase gives every Edge Function automatically; it never leaves the server. No function needs a third-party API key.
 
 ### 2. Configure the app
 
@@ -100,10 +98,9 @@ Edit `public/js/config.js`:
 ```js
 SUPABASE_URL: 'https://<your-ref>.supabase.co',
 SUPABASE_ANON_KEY: '<anon or publishable key>',
-VAPID_PUBLIC_KEY: '<public key from the step above>'
 ```
 
-These three values are meant to be public. **Never** put the `service_role` key or the VAPID *private* key in the frontend. They go in Supabase Edge Function secrets. See `.env.example`.
+Both values are meant to be public. Leave `VAPID_PUBLIC_KEY` empty; the app fetches the server's public push key itself. **Never** put the `service_role` key or any private key in the frontend.
 
 ### 3. Deploy (free)
 
@@ -168,6 +165,7 @@ No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES mo
 - **Surprise Lock:** a "secretly purchased" claim is visible only to the person who made it. You can't claim items on your own list.
 - **Money rows** are checked by triggers: who paid and who's responsible must belong to your couple, and bill payments can't be edited after the fact.
 - **Link scraper** refuses private, local and raw-IP addresses, so it can't be pointed at internal services.
+- **Push keys** are generated server-side on first use. The private half sits in `push_vapid_keys` (RLS on, no policies, no grants), so only Edge Functions can read it; browsers get the public half from `push_public_key()`.
 - **Shortcut tokens** are random 24-byte secrets stored only as SHA-256 hashes. A token can file shares and read the widget numbers for its owner, nothing else, and every lookup is scoped to that owner's couple.
 - **Push alerts** are written by database triggers into an outbox only the sender can read; clients can't write alert text or send to anyone outside their couple.
 - **Love coins** are written only by database triggers (when the *other* partner approves a task, or when a coupon is redeemed with enough balance).

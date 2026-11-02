@@ -18,7 +18,7 @@ import { serve, json, userClient, HttpError } from '../_shared/http.ts';
 import { classify } from '../_shared/classify.ts';
 import { readTikTok } from '../_shared/tiktok.ts';
 import { unfurl } from '../_shared/unfurl.ts';
-import { deliver, type PushJob } from '../_shared/push.ts';
+import { configure, deliver, type PushJob } from '../_shared/push.ts';
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 
@@ -69,8 +69,10 @@ serve(async (req) => {
     });
     if (error) throw new HttpError(error.code === '28000' ? 401 : 400, error.message);
     // Nobody's app is open to flush alerts for this share, so send them here.
-    const jobs = await anon.rpc('inbox_claim_push', { p_token: token });
-    if (!jobs.error) await deliver((jobs.data ?? []) as PushJob[]);
+    if (await configure()) {
+      const jobs = await anon.rpc('inbox_claim_push', { p_token: token });
+      if (!jobs.error) await deliver((jobs.data ?? []) as PushJob[]);
+    }
     if ((data as { duplicate?: boolean })?.duplicate) message = 'Already in the TikTok vault 🎬';
     return json({ message, routed: data });
   }
