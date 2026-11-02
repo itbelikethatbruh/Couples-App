@@ -63,6 +63,13 @@ export default {
     headers.set('ETag', `"${commit.slice(0, 12)}"`);
     if (path === '/sw.js') headers.set('Service-Worker-Allowed', '/');
     if (request.headers.get('If-None-Match') === headers.get('ETag')) return new Response(null, { status: 304, headers });
+    if (path === '/sw.js') {
+      // Stamp the commit into the service worker's cache version, so every
+      // deploy changes sw.js: phones install the new worker, which caches
+      // the new files under new names and deletes the old caches.
+      const sw = (await upstream.text()).replace(/const VERSION = '([^']*)'/, (_, v) => `const VERSION = '${v}+${commit.slice(0, 12)}'`);
+      return new Response(request.method === 'HEAD' ? null : sw, { status: 200, headers });
+    }
     return new Response(request.method === 'HEAD' ? null : upstream.body, { status: 200, headers });
   }
 };

@@ -104,7 +104,7 @@ Both values are meant to be public. Leave `VAPID_PUBLIC_KEY` empty; the app fetc
 
 ### 3. Deploy (free)
 
-**Live now:** https://us-couples.drakechristopher1995.workers.dev runs on a Cloudflare Worker (`cloudflare/worker.js`). It serves `public/` straight from this repo at a pinned commit (the Worker's `COMMIT` variable) with the same headers as `public/_headers`, so shipping a new version means pointing `COMMIT` at the new `main`.
+**Live now:** https://us-couples.drakechristopher1995.workers.dev runs on a Cloudflare Worker (`cloudflare/worker.js`). It serves `public/` straight from this repo at a pinned commit (the Worker's `COMMIT` variable) with the same headers as `public/_headers`, so shipping a new version means pointing `COMMIT` at the new `main`. The Worker stamps the commit into the service worker's cache version, so installed apps pick up every deploy.
 
 Other options:
 
