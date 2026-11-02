@@ -60,16 +60,23 @@ export function configure(): Promise<boolean> {
   return ready;
 }
 
-/** Sends every job; returns endpoints grouped by outcome for push_report(). */
+/**
+ * Sends every job; returns endpoints grouped by outcome for push_report(),
+ * plus the jobs whose every device failed for a temporary reason (retry).
+ */
 export async function deliver(jobs: PushJob[]) {
   const ok: string[] = [];
   const gone: string[] = [];
   const failed: string[] = [];
+  const retry: string[] = [];
   const configured = await configure();
-  if (!jobs.length || !configured) return { sent: 0, ok, gone, failed, configured };
+  if (!jobs.length || !configured) return { sent: 0, ok, gone, failed, retry, configured };
 
+  const outcome = new Map<string, { delivered: boolean; temporary: boolean }>();
   await Promise.all(jobs.map(async (j) => {
     const payload = JSON.stringify({ title: j.job_title, body: j.job_body ?? '', kind: j.job_kind, url: j.job_url, tag: j.job_tag ?? undefined });
+    const o = outcome.get(j.job_id) ?? { delivered: false, temporary: false };
+    outcome.set(j.job_id, o);
     try {
       await webpush.sendNotification(
         { endpoint: j.sub_endpoint, keys: { p256dh: j.sub_p256dh, auth: j.sub_auth } },
@@ -77,24 +84,30 @@ export async function deliver(jobs: PushJob[]) {
         { TTL: 60 * 60 * 6, urgency: 'high', timeout: 8000 }
       );
       ok.push(j.sub_endpoint);
+      o.delivered = true;
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) gone.push(j.sub_endpoint);
-      else { failed.push(j.sub_endpoint); console.warn('[push] failed', status, (err as Error).message); }
+      else {
+        failed.push(j.sub_endpoint);
+        o.temporary = true;
+        console.warn('[push] failed', status, (err as Error).message);
+      }
     }
   }));
-  return { sent: ok.length, ok, gone, failed, configured: true };
+  for (const [id, o] of outcome) if (!o.delivered && o.temporary) retry.push(id);
+  return { sent: ok.length, ok, gone, failed, retry, configured: true };
 }
 
 /** Claims the caller's pending alerts, sends them, reports results. */
 export async function flushFor(db: SupabaseClient) {
   // Keys first, so alerts are never marked sent when they can't be signed.
-  if (!(await configure())) return { sent: 0, ok: [], gone: [], failed: [], configured: false };
+  if (!(await configure())) return { sent: 0, ok: [], gone: [], failed: [], retry: [], configured: false };
   const { data, error } = await db.rpc('claim_push_jobs');
   if (error) throw new Error(error.message);
   const result = await deliver((data ?? []) as PushJob[]);
   if (result.ok.length || result.gone.length || result.failed.length) {
-    await db.rpc('push_report', { p_ok: result.ok, p_gone: result.gone, p_failed: result.failed });
+    await db.rpc('push_report', { p_ok: result.ok, p_gone: result.gone, p_failed: result.failed, p_retry: result.retry });
   }
   return result;
 }

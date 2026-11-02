@@ -229,25 +229,46 @@ begin
   join public.push_subscriptions s on s.user_id = j.recipient_id;
 end $$;
 
--- Delivery results from send-push: dead endpoints are removed, flaky ones
--- counted (and dropped after 5 failures). Only devices in your couple.
-create or replace function public.push_report(p_ok text[], p_gone text[], p_failed text[])
+-- Delivery results from send-push. Only touches devices that received an
+-- alert the caller sent in the last 15 minutes, so nobody can switch off
+-- their partner's alerts by reporting an endpoint that wasn't just used.
+-- Dead endpoints are removed; flaky ones are counted (dropped after 5
+-- failures). Jobs in p_retry (every device failed for a temporary reason)
+-- go back to the queue and are retried on the next flush, within the
+-- two-hour window claim_push_jobs() uses.
+drop function if exists public.push_report(text[], text[], text[]);
+create or replace function public.push_report(p_ok text[], p_gone text[], p_failed text[], p_retry uuid[] default null)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
+  v_me uuid := auth.uid();
   v_couple uuid := (select couple_id from public.profiles where id = auth.uid());
+  v_scope text[];
 begin
-  if v_couple is null then return; end if;
+  if v_me is null or v_couple is null then return; end if;
+  v_scope := array(
+    select distinct s.endpoint
+      from public.push_subscriptions s
+      join public.push_outbox o on o.recipient_id = s.user_id
+     where o.sender_id = v_me and o.couple_id = v_couple
+       and o.sent_at > now() - interval '15 minutes');
+
   update public.push_subscriptions s set last_used_at = now(), failed_count = 0
    where s.endpoint = any (coalesce(p_ok, '{}'))
-     and s.user_id in (select id from public.profiles where couple_id = v_couple);
+     and s.endpoint = any (v_scope);
   delete from public.push_subscriptions s
    where s.endpoint = any (coalesce(p_gone, '{}'))
-     and s.user_id in (select id from public.profiles where couple_id = v_couple);
+     and s.endpoint = any (v_scope);
   update public.push_subscriptions s set failed_count = failed_count + 1
    where s.endpoint = any (coalesce(p_failed, '{}'))
-     and s.user_id in (select id from public.profiles where couple_id = v_couple);
-  delete from public.push_subscriptions where failed_count >= 5
-     and user_id in (select id from public.profiles where couple_id = v_couple);
+     and s.endpoint = any (v_scope);
+  delete from public.push_subscriptions s where s.failed_count >= 5
+     and s.endpoint = any (v_scope);
+
+  update public.push_outbox o set sent_at = null
+   where o.id = any (coalesce(p_retry, '{}'))
+     and o.sender_id = v_me and o.sent_at is not null
+     and o.created_at > now() - interval '2 hours';
+
   delete from public.push_outbox where couple_id = v_couple and created_at < now() - interval '14 days';
 end $$;
 
@@ -382,6 +403,15 @@ begin
   return v_user;
 end $$;
 
+-- Cheap check the Edge Function runs before it fetches anything, so a
+-- request without a valid token can't make it download pages.
+create or replace function public.inbox_token_ok(p_token text)
+returns boolean language sql security definer set search_path = '' as $$
+  select p_token ~ '^ci_[0-9a-f]{48}$' and exists (
+    select 1 from public.inbox_tokens
+     where token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex') and revoked_at is null)
+$$;
+
 create or replace function public.inbox_submit(p_token text, p_kind text, p_payload jsonb, p_raw_text text default null, p_raw_url text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_user uuid := public.act_as_token(p_token);
@@ -460,10 +490,10 @@ revoke all on function public.token_user(text) from public, anon, authenticated;
 revoke all on function public.act_as_token(text) from public, anon, authenticated;
 
 revoke all on function public.claim_push_jobs() from public, anon;
-revoke all on function public.push_report(text[], text[], text[]) from public, anon;
+revoke all on function public.push_report(text[], text[], text[], uuid[]) from public, anon;
 revoke all on function public.inbox_save(text, text, jsonb, text, text) from public, anon;
 grant execute on function public.claim_push_jobs() to authenticated;
-grant execute on function public.push_report(text[], text[], text[]) to authenticated;
+grant execute on function public.push_report(text[], text[], text[], uuid[]) to authenticated;
 grant execute on function public.inbox_save(text, text, jsonb, text, text) to authenticated;
 revoke all on function public.push_public_key() from public, anon;
 grant execute on function public.push_public_key() to authenticated;
@@ -471,9 +501,11 @@ grant execute on function public.push_public_key() to authenticated;
 -- Token entry points: callable without a session; the token is the login.
 revoke all on function public.inbox_submit(text, text, jsonb, text, text) from public;
 revoke all on function public.inbox_claim_push(text) from public;
+revoke all on function public.inbox_token_ok(text) from public;
 revoke all on function public.widget_summary(text) from public;
 grant execute on function public.inbox_submit(text, text, jsonb, text, text) to anon, authenticated;
 grant execute on function public.inbox_claim_push(text) to anon, authenticated;
+grant execute on function public.inbox_token_ok(text) to anon, authenticated;
 grant execute on function public.widget_summary(text) to anon, authenticated;
 
 -- The sender's phone listens for its own new outbox rows.

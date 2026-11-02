@@ -33,6 +33,21 @@ serve(async (req) => {
   const url = str(body?.url, 2048).trim();
   if (!text && !url) throw new HttpError(400, 'Nothing was shared');
 
+  // Authenticate before doing any work, so a stranger can't make this
+  // function fetch pages. verify_jwt is off (the Shortcut sends a token),
+  // so this check is the gate.
+  const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  let db = anon;
+  if (token) {
+    const { data: valid, error } = await anon.rpc('inbox_token_ok', { p_token: token });
+    if (error) throw new HttpError(500, error.message);
+    if (!valid) throw new HttpError(401, 'invalid or revoked token');
+  } else {
+    db = (await userClient(req)).db;
+  }
+
   const c = classify(text, url);
   let payload: Record<string, unknown>;
   let message: string;
@@ -60,10 +75,7 @@ serve(async (req) => {
 
   if (token) {
     // Shortcut path: the token is the login. Uses only the public anon key;
-    // the database checks the token and acts as its owner.
-    const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      auth: { persistSession: false, autoRefreshToken: false }
-    });
+    // the database checks the token again and acts as its owner.
     const { data, error } = await anon.rpc('inbox_submit', {
       p_token: token, p_kind: c.kind, p_payload: payload, p_raw_text: text || null, p_raw_url: url || null
     });
@@ -77,7 +89,6 @@ serve(async (req) => {
     return json({ message, routed: data });
   }
 
-  const { db } = await userClient(req);
   const source = body?.source === 'share_sheet' ? 'share_sheet' : 'paste';
   const { data, error } = await db.rpc('inbox_save', {
     p_source: source, p_kind: c.kind, p_payload: payload, p_raw_text: text || null, p_raw_url: url || null
