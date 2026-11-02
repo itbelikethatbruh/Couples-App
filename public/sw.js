@@ -9,7 +9,7 @@
  *  4. Android share target: forward shared text/links into the app.
  */
 
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/css/app.css',
+  '/css/depth.css',
   '/js/app.js',
   '/js/config.js',
   '/js/store.js',

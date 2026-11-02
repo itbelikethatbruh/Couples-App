@@ -1,0 +1,253 @@
+/* =====================================================================
+   Couples App · Depth pass (Phase 5)
+   Copyright (c) 2026. All Rights Reserved. See LICENSE.
+
+   Layered on top of app.css. Everything here is either static, moves on
+   the compositor (transform / opacity / the individual translate, rotate
+   and scale properties), or is driven by the browser's own scroll
+   timeline, so it costs almost nothing per frame. All of it switches off
+   under "Reduce motion".
+
+     1. Star dust: a fourth parallax plane between the light orbs and UI
+     2. Moving glare: a light spot on every glass card that slides with
+        the phone's tilt (or the mouse), like light on real glass
+     3. Scroll depth: cards rise out of the screen as they scroll in, and
+        page titles sink back as you scroll down
+     4. Extruded titles and lit numbers
+     5. Rim light: a slow rotating halo around the Send Love button
+     6. Sheets push the app back in 3D; dialogs flip in
+     7. Deeper press feedback and a stronger dock
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Star dust · plane 1.5 (moves more than the orbs, less than the UI)
+   --------------------------------------------------------------------- */
+.ambient::before,
+.ambient::after {
+  content: "";
+  position: absolute;
+  inset: -60px;
+  pointer-events: none;
+  background-repeat: repeat;
+}
+.ambient::before {
+  opacity: 0.55;
+  background-image:
+    radial-gradient(1.2px 1.2px at 12% 18%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1px 1px at 68% 32%, rgba(255, 210, 230, 0.8), transparent 60%),
+    radial-gradient(1.4px 1.4px at 38% 74%, rgba(200, 190, 255, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 86% 82%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(0.8px 0.8px at 52% 46%, rgba(255, 255, 255, 0.6), transparent 60%);
+  background-size: 220px 260px;
+  transform: translate3d(calc(var(--px) * 46px), calc(var(--py) * 40px), 0);
+  animation: dust-twinkle 7s ease-in-out infinite alternate;
+}
+.ambient::after {
+  opacity: 0.35;
+  background-image:
+    radial-gradient(1.8px 1.8px at 24% 62%, rgba(255, 106, 162, 0.9), transparent 60%),
+    radial-gradient(1.6px 1.6px at 78% 14%, rgba(155, 92, 255, 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 58% 88%, rgba(255, 255, 255, 0.8), transparent 60%);
+  background-size: 340px 380px;
+  transform: translate3d(calc(var(--px) * 64px), calc(var(--py) * 58px), 0);
+  animation: dust-twinkle 11s ease-in-out 2s infinite alternate-reverse;
+}
+@keyframes dust-twinkle { from { opacity: 0.2; } to { opacity: 0.6; } }
+html.has-wallpaper .ambient::before,
+html.has-wallpaper .ambient::after { opacity: 0.2; animation: none; }
+
+/* ---------------------------------------------------------------------
+   2. Moving glare on glass cards
+   --------------------------------------------------------------------- */
+.card.glass:not(.question-card)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 55% at 22% 0%, rgba(255, 255, 255, 0.11), transparent 62%),
+    radial-gradient(40% 30% at 92% 100%, rgba(155, 92, 255, 0.10), transparent 70%);
+  transform: translate3d(calc(var(--px) * 16%), calc(var(--py) * 10%), 0);
+}
+/* Brighter, thinner rim of light on the top edge of every glass surface */
+.glass {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 14px 34px -14px rgba(0, 0, 0, 0.75),
+    0 40px 70px -36px rgba(0, 0, 0, 0.7);
+}
+/* Cards float a little off the page: a soft contact shadow under each */
+.page > .card.glass,
+.spark-modules > .card.glass,
+.spark-slot > .card.glass,
+.page > section > .card.glass {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 2px 0 -1px rgba(255, 255, 255, 0.04),
+    0 18px 40px -18px rgba(0, 0, 0, 0.85),
+    0 48px 80px -40px rgba(20, 0, 30, 0.75);
+}
+
+/* ---------------------------------------------------------------------
+   3. Scroll depth (browsers with scroll-driven animations: Chrome 115+,
+      Safari 26+). Older browsers simply show the cards in place.
+   --------------------------------------------------------------------- */
+@supports (animation-timeline: view()) {
+  .card.glass:not(.card.glass .card.glass):not(.sheet .card):not(.modal) {
+    animation: card-surface linear both;
+    animation-timeline: view(block);
+    animation-range: entry 0% entry 85%;
+    transform-origin: 50% 100%;
+  }
+  @keyframes card-surface {
+    from { opacity: 0.15; translate: 0 56px -180px; rotate: x 16deg; scale: 0.94; }
+    to   { opacity: 1;    translate: 0 0 0;       rotate: x 0deg;  scale: 1; }
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .page-header {
+    animation: header-recede linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: 0px 220px;
+    transform-origin: 0% 100%;
+  }
+  @keyframes header-recede {
+    to { opacity: 0.25; translate: 0 26px -120px; rotate: x -10deg; }
+  }
+}
+
+/* ---------------------------------------------------------------------
+   4. Extruded titles + lit numbers
+   --------------------------------------------------------------------- */
+.page-header .title-xl,
+.auth-card .title-xl {
+  color: #fff;
+  text-shadow:
+    0 1px 0 rgba(196, 140, 186, 0.55),
+    0 2px 0 rgba(150, 98, 160, 0.48),
+    0 3px 0 rgba(110, 66, 136, 0.42),
+    0 4px 0 rgba(74, 42, 104, 0.4),
+    0 9px 16px rgba(0, 0, 0, 0.55),
+    0 0 46px rgba(255, 45, 120, 0.28);
+}
+.page-header .eyebrow {
+  background: linear-gradient(90deg, rgba(255, 180, 210, 0.95), rgba(190, 170, 255, 0.85));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rings-total {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 0 rgba(120, 100, 160, 0.4), 0 3px 0 rgba(60, 40, 90, 0.35), 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+.settle-amount .settle-num { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)) drop-shadow(0 10px 22px rgba(62, 230, 168, 0.25)); }
+
+/* ---------------------------------------------------------------------
+   5. Rim light around Send Love
+   --------------------------------------------------------------------- */
+.love-button { isolation: isolate; }
+.love-button::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 18%, rgba(255, 255, 255, 0.95) 24%, rgba(255, 106, 162, 0.9) 30%, transparent 40% 62%, rgba(155, 92, 255, 0.9) 72%, transparent 82%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  filter: blur(0.6px);
+  animation: rim-spin 5.5s linear infinite;
+}
+.love-button::after {                                   /* glassy dome highlight */
+  content: "";
+  position: absolute;
+  inset: 8px 18px auto 18px;
+  height: 38%;
+  border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+  pointer-events: none;
+  opacity: 0.7;
+}
+@keyframes rim-spin { to { rotate: 360deg; } }
+
+/* Primary buttons: a band of light sweeps across when pressed */
+.btn-primary { position: relative; overflow: hidden; isolation: isolate; }
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.45) 48%, transparent 66%);
+  translate: -120% 0;
+}
+.btn-primary.is-pressed::after { animation: sheen-sweep 620ms var(--ease-out); }
+@keyframes sheen-sweep { from { translate: -120% 0; } to { translate: 120% 0; } }
+
+/* ---------------------------------------------------------------------
+   6. Sheets push the app back; dialogs flip forward
+   --------------------------------------------------------------------- */
+#app { transition: scale 520ms var(--spring-soft), translate 520ms var(--spring-soft), filter 420ms ease, border-radius 420ms ease; transform-origin: 50% 30%; }
+body:has(.sheet-host.open) #app {
+  scale: 0.93;
+  translate: 0 10px;
+  border-radius: 34px;
+  overflow: hidden;
+  filter: brightness(0.72) saturate(0.9);
+}
+.sheet-host.open .sheet {
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.16), 0 -30px 80px -20px rgba(0, 0, 0, 0.8), 0 -10px 60px -30px rgba(255, 45, 120, 0.35);
+}
+.modal { animation: dialog-flip 620ms var(--spring) both; transform-origin: 50% 0%; }
+@keyframes dialog-flip {
+  from { opacity: 0; transform: perspective(900px) translate3d(0, 24px, -140px) rotateX(-28deg) scale(0.92); }
+}
+
+/* ---------------------------------------------------------------------
+   7. Press depth + dock
+   --------------------------------------------------------------------- */
+.card.is-pressed,
+.tt-tile.is-pressed,
+.jar-tile.is-pressed,
+.wish-card.is-pressed {
+  transform: perspective(900px) translateZ(-26px) scale(0.98) !important;
+  transition-duration: 120ms;
+}
+.dock {
+  background: rgba(12, 12, 18, 0.74);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px -12px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.dock-indicator::after {                                /* reflection under the active tab */
+  content: "";
+  position: absolute;
+  left: 18%; right: 18%; bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 180, 210, 0.95), transparent);
+  box-shadow: 0 0 12px rgba(255, 106, 162, 0.9);
+}
+.topbar .glass, .topbar .icon-btn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 24px -12px rgba(0, 0, 0, 0.8); }
+
+/* ---------------------------------------------------------------------
+   Reduce motion: keep the look, drop the movement
+   --------------------------------------------------------------------- */
+html.reduce-motion .card.glass, html.reduce-motion .page-header { animation: none !important; opacity: 1; translate: none; rotate: none; scale: none; }
+html.reduce-motion .ambient::before, html.reduce-motion .ambient::after,
+html.reduce-motion .card.glass::after { transform: none; animation: none; }
+html.reduce-motion .love-button::before { animation: none; }
+html.reduce-motion body:has(.sheet-host.open) #app { scale: none; translate: none; }
+@media (prefers-reduced-motion: reduce) {
+  .card.glass, .page-header { animation: none !important; }
+  .ambient::before, .ambient::after, .card.glass::after { transform: none; }
+  .love-button::before { animation: none; }
+  body:has(.sheet-host.open) #app { scale: none; translate: none; }
+}
