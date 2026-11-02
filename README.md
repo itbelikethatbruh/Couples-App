@@ -39,7 +39,6 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 | **Settle up** | One number: who owes whom, from split expenses and past settlements, on a 3D seesaw that tips toward whoever's ahead. One tap records a settlement for the full amount. |
 | **50/30/20 rings** | Needs, Wants and Savings as glowing concentric rings for any month, fed by both expenses and paid bills. Set your combined take-home pay and your own split. Rings glow red when a bucket goes over. |
 | **Bills** | Recurring bills (weekly, monthly, yearly, one-time) with overdue, today and soon colors, autopay tags and who pays. "Paid ✓" logs the payment and rolls the due date forward in one database call (Jan 31 → Feb 28 → Mar 31). Undo the latest payment if you tapped by mistake. |
-| **AI receipt scanner** | Snap a receipt; the photo is shrunk on the phone, stored privately, and read by Claude (via the `scan-receipt` Edge Function). Merchant, date, total, category, bucket and line items come back for you to check before they become an expense. Capped at 40 scans per couple per day. |
 | **Spending log** | Category bar, joint / 50-50 / "they owe it all" splits, and line items. |
 | **Savings jars** | 3D glass jars that fill as you save, with a "$X/mo to hit it" pace when you set a date. Deposits are atomic, so two quick taps on two phones both count. |
 | **Smart Wishlists** | A personal Amazon list each, shared Restaurants / Vacations / Events boards, and your own lists. Paste a link and the `unfurl-link` Edge Function fills in the title, photo and price (Amazon, plus any store with standard product tags). Priority tags: Need, Want, Treat, Dream. Restaurants you add show up in the dinner swiper. |
@@ -54,7 +53,6 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 - **Voice notes from iPhone play on Android Chrome and vice versa** on current OS versions. Very old Android WebViews may not play AAC.
 - **Push alerts for answers, voice notes, matches and coupons arrive in Phase 4** with the `send-push` Edge Function. Until then, the other phone sees them live while the app is open.
 - **iPhone haptics:** Safari has no vibration API. The app uses an iOS 18 switch-control trick for a light tap. On older iOS, you get the visual press animation only.
-- **Receipt scanning costs money and needs your own Anthropic API key.** Each scan is one Claude call (a few cents at most). Without the key, the Scan button says scanning isn't set up, and manual expenses still work. Always check the numbers on the review screen before saving: the AI can misread a crumpled or faded receipt.
 - **Amazon often blocks automated page reads.** When it does, the link scraper keeps the cleaned link and a title from the URL, but no photo or price. Type those in, or paste the link again later.
 - **Money is tracked, not moved.** "Settle up" and bills record what you did in your bank app; nothing connects to a bank.
 - **Free-tier limits** (check current numbers on the Supabase pricing page): projects pause after about a week with no activity; there is a 1 GB Storage cap and a cap on the built-in email sender. Use password sign-in day to day so you don't hit the email cap.
@@ -69,14 +67,12 @@ A cloud-synced Progressive Web App for one couple. It installs to the home scree
 4. **Authentication → Email Templates → Magic Link:** add `{{ .Token }}` to the template body so the *Email me a code* option sends a 6-digit code. The app does not use magic links, because on iPhone they open in Safari, not in the installed app.
 5. **Authentication → URL Configuration:** set *Site URL* to your deployed address.
 6. **Project Settings → API:** copy the Project URL and the anon/publishable key.
-7. **Edge Functions** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
+7. **Edge Function** (needs the [Supabase CLI](https://supabase.com/docs/guides/cli)):
    ```sh
    supabase link --project-ref <your-ref>
-   supabase functions deploy scan-receipt
    supabase functions deploy unfurl-link
-   supabase secrets set ANTHROPIC_API_KEY=<key from console.anthropic.com>
    ```
-   Both functions run as the signed-in user, so RLS still applies. They never use the `service_role` key. Optional: `RECEIPT_MODEL` overrides the Claude model.
+   It runs as the signed-in user, so RLS still applies. It never uses the `service_role` key, and it needs no API keys.
 
 ### 2. Configure the app
 
@@ -88,7 +84,7 @@ SUPABASE_ANON_KEY: '<anon or publishable key>',
 VAPID_PUBLIC_KEY: '<from: npx web-push generate-vapid-keys>'
 ```
 
-These three values are meant to be public. **Never** put the `service_role` key, the VAPID *private* key, or AI/Ticketmaster keys in the frontend. They go in Supabase Edge Function secrets. See `.env.example`.
+These three values are meant to be public. **Never** put the `service_role` key, or the VAPID *private* key in the frontend. They go in Supabase Edge Function secrets. See `.env.example`.
 
 ### 3. Deploy (free)
 
@@ -130,13 +126,13 @@ public/
     media.js            image compression, uploads, signed URLs
     sheet.js            bottom sheets, forms, celebration modal
     spark/              Spark Hub modules (question, voice, memories, dinner, bounty, coupons, roulette)
-    money/              settle-up, budget rings, bills, spending + receipts, savings jars
+    money/              settle-up, budget rings, bills, spending, savings jars
     views/              spark, vault, money, wishlist, settings, placeholders
   icons/                app icons
 supabase/schema.sql     database, RLS, realtime, storage
 supabase/phase2.sql     question deck, meal seeds, Spark Hub functions
 supabase/phase3.sql     money + wishlist guards, bill/fund/budget/settle functions
-supabase/functions/     Edge Functions: scan-receipt (Claude), unfurl-link (link scraper)
+supabase/functions/     Edge Functions: unfurl-link (link scraper)
 ```
 
 No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES module from jsDelivr.
@@ -147,7 +143,7 @@ No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES mo
 - `profiles.couple_id` and `slot` can only change through the `create_couple` / `join_couple` functions. Column-level grants stop clients from editing them directly.
 - **Blind daily answers:** your partner's answer is hidden by RLS until you've both answered, including in live updates.
 - **Surprise Lock:** a "secretly purchased" claim is visible only to the person who made it. You can't claim items on your own list.
-- **Money rows** are checked by triggers: who paid, who's responsible and receipt photo paths must belong to your couple, and bill payments can't be edited after the fact.
+- **Money rows** are checked by triggers: who paid and who's responsible must belong to your couple, and bill payments can't be edited after the fact.
 - **Link scraper** refuses private, local and raw-IP addresses, so it can't be pointed at internal services.
 - **Love coins** are written only by database triggers (when the *other* partner approves a task, or when a coupon is redeemed with enough balance).
 - Storage paths are `{couple_id}/{user_id}/…`. You can read your couple's files, and only write or delete your own.
@@ -155,8 +151,10 @@ No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES mo
 ## Roadmap
 
 - **Phase 2 (done):** Spark Hub and Partner Vault.
-- **Phase 3 (done):** Money (bills, 50/30/20 rings, sinking funds, AI receipt scanner, settle-up) and Smart Wishlists (link scraper, Surprise Lock).
-- **Phase 4:** Events discovery, TikTok vault, AI notes organizer, Edge Functions (`parse-tiktok`, `universal-inbox`, `send-push`), iOS Shortcut guide, Scriptable widget.
+- **Phase 3 (done):** Money (bills, 50/30/20 rings, sinking funds, settle-up) and Smart Wishlists (link scraper, Surprise Lock).
+- **Phase 4:** TikTok vault, notes, Edge Functions (`parse-tiktok`, `universal-inbox`, `send-push`), iOS Shortcut guide, Scriptable widget.
+
+The app needs no paid or third-party API keys. Features that would (AI receipt scanning, AI note sorting, Ticketmaster events) were left out on purpose.
 
 ---
 

@@ -1482,21 +1482,6 @@ html.reduce-motion .tilt { transform: none !important; }
 @keyframes seg-grow { from { transform: scaleX(0); } }
 .cat-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 12px; font-size: 12px; color: var(--ink-2); }
 .cat-key::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 5px; }
-.receipt-queue { display: grid; gap: 8px; margin-bottom: 10px; }
-.receipt-queue:empty { display: none; }
-.receipt-row {
-  display: grid; grid-template-columns: 44px 1fr; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 16px;
-  border: 1px solid rgba(91,91,255,.35); background: linear-gradient(135deg, rgba(91,91,255,.14), rgba(255,45,120,.08));
-}
-.receipt-row.status-error { border-color: rgba(255,90,110,.4); background: rgba(255,90,110,.08); }
-.receipt-row .task-actions { grid-column: 1 / -1; }
-.receipt-main { display: grid; min-width: 0; }
-.receipt-icon {
-  position: relative; width: 44px; height: 52px; border-radius: 8px; display: grid; place-items: center; font-size: 22px; overflow: hidden;
-  background: linear-gradient(180deg, #fff 0%, #e9e6f2 100%); box-shadow: 0 8px 18px -8px rgba(0,0,0,.6); transform: rotate(-4deg);
-}
-.scan-beam { position: absolute; left: 0; right: 0; height: 10px; background: linear-gradient(180deg, transparent, rgba(255,45,120,.9), transparent); animation: scan 1.2s ease-in-out infinite alternate; box-shadow: 0 0 12px var(--rose); }
-@keyframes scan { from { top: -4px; } to { top: calc(100% - 6px); } }
 .expense-list { display: grid; gap: 6px; }
 .expense-row {
   display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 14px;
@@ -1507,10 +1492,6 @@ html.reduce-motion .tilt { transform: none !important; }
 .expense-main { display: grid; min-width: 0; }
 .expense-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .split-chip { min-height: 20px; padding: 0 7px; font-size: 11px; margin-left: 6px; vertical-align: 1px; }
-.receipt-items { margin: 4px 0 8px; font-size: 14px; }
-.receipt-items summary { cursor: pointer; color: var(--ink-2); font-weight: 650; padding: 6px 0; }
-.receipt-items ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
-.receipt-items li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 
 /* ---- Savings jars ---- */
 .jar-rail {

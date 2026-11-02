@@ -8,8 +8,8 @@ const PLANS = {
   discover: {
     title: 'Discover',
     phase: 'Phase 4',
-    blurb: 'Events near home, TikToks to watch together, and a smart notes inbox.',
-    items: ['Ticketmaster events', 'Inline TikTok vault', 'AI wishlist chips', 'Share Sheet inbox', 'AI notes organizer']
+    blurb: 'TikToks to watch together and a shared notes inbox.',
+    items: ['Inline TikTok vault', 'Share Sheet inbox', 'Shared notes']
   }
 };
 

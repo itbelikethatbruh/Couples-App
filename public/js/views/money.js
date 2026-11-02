@@ -2,7 +2,7 @@
  * Copyright (c) 2026. All Rights Reserved. See LICENSE.
  *
  * Settle-up balance, 50/30/20 budget rings, recurring bills, a spending
- * log with an AI receipt scanner, and savings jars. Every card listens to
+ * log, and savings jars. Every card listens to
  * realtime changes, so a bill paid on one phone flips on the other.
  */
 import { h } from '../ui.js';
