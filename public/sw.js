@@ -9,7 +9,7 @@
  *  4. Android share target: forward shared text/links into the app.
  */
 
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.2.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -34,6 +34,14 @@ const SHELL_ASSETS = [
   '/js/sheet.js',
   '/js/views/spark.js',
   '/js/views/vault.js',
+  '/js/views/money.js',
+  '/js/views/wishlist.js',
+  '/js/money/common.js',
+  '/js/money/settle.js',
+  '/js/money/budget.js',
+  '/js/money/bills.js',
+  '/js/money/spending.js',
+  '/js/money/funds.js',
   '/js/views/placeholder.js',
   '/js/views/settings.js',
   '/js/spark/common.js',
