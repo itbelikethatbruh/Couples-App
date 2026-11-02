@@ -5,18 +5,6 @@ import { h } from '../ui.js';
 import { tilt } from '../fx.js';
 
 const PLANS = {
-  money: {
-    title: 'Money',
-    phase: 'Phase 3',
-    blurb: 'Bills, budgets and a settle-up ledger that does the math.',
-    items: ['Recurring bill calendar', '50/30/20 budget rings', 'Sinking funds', 'AI receipt scanner', 'Settle-up balance']
-  },
-  wishlist: {
-    title: 'Wishlists',
-    phase: 'Phase 3',
-    blurb: 'Paste any link. Surprise Lock keeps secret gifts secret.',
-    items: ['Personal Amazon boards', 'Restaurants, vacations & events', 'Auto title, photo & price', 'Priority tags', 'Surprise Lock']
-  },
   discover: {
     title: 'Discover',
     phase: 'Phase 4',
