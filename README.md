@@ -176,6 +176,7 @@ No build step and no npm dependencies. `supabase-js` is loaded as a pinned ES mo
 - **Phase 2 (done):** Spark Hub and Partner Vault.
 - **Phase 3 (done):** Money (bills, 50/30/20 rings, sinking funds, settle-up) and Smart Wishlists (link scraper, Surprise Lock).
 - **Phase 4 (done):** Discover (universal inbox, TikTok vault, shared lists), push alerts, iPhone Shortcut and Scriptable widget. TikTok links are read inside `universal-inbox`, so there's no separate `parse-tiktok` function.
+- **Phase 5 (done):** Depth pass (`public/css/depth.css`): star-dust parallax plane, tilt-tracking glare on glass, cards that rise out of the screen as you scroll, titles that sink back, extruded headings, a rim light on Send Love, sheets that push the app back in 3D. Scroll effects need Chrome 115+ or Safari 26+; older browsers show the same layout without them. Everything turns off with Reduce motion.
 
 The app needs no paid or third-party API keys. Features that would (AI receipt scanning, AI note sorting, Ticketmaster events) were left out on purpose.
 

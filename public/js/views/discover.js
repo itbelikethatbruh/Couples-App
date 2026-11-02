@@ -5,7 +5,7 @@
  * TikTok vault, shared lists, and the iPhone Shortcut + home-screen widget
  * setup. Nothing here needs a third-party API key.
  */
-import { h } from '../ui.js';
+import { h, isIOS } from '../ui.js';
 import * as inboxMod from '../discover/inbox.js';
 import * as tiktokMod from '../discover/tiktok.js';
 import * as listsMod from '../discover/lists.js';
@@ -19,7 +19,9 @@ export function mount(page) {
   page.append(modules);
 
   const cleanups = [];
-  for (const mod of [inboxMod, tiktokMod, listsMod, connectMod]) {
+  // On iPhone the Share Sheet setup matters most, so it sits right under the inbox.
+  const order = isIOS() ? [inboxMod, connectMod, tiktokMod, listsMod] : [inboxMod, tiktokMod, listsMod, connectMod];
+  for (const mod of order) {
     const slot = h('div.discover-slot');
     modules.append(slot);
     try { cleanups.push(mod.mount(slot)); } catch (err) { console.error('[discover] module failed', err); }
