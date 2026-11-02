@@ -6,13 +6,17 @@
  *  - iPhone: iOS 16.4+ ONLY after "Add to Home Screen", opened from the
  *    home-screen icon, and permission must be requested from a tap.
  *    In a regular Safari tab, PushManager does not exist.
- * Sending happens server-side (send-push Edge Function, Phase 4) with the
- * VAPID private key stored as a Supabase secret.
+ * Sending happens server-side: database triggers write each alert to
+ * push_outbox, and this phone asks the send-push Edge Function to deliver
+ * the alerts it caused (see startPushRelay). The signing keys are made
+ * by the server on first use; this file only ever sees the public half,
+ * fetched with the push_public_key() RPC.
  */
 import { CONFIG } from './config.js';
 import { store, toast } from './store.js';
 import { supabase, unwrap } from './supabase.js';
 import { isIOS, isStandalone } from './ui.js';
+import { onTable, onResync } from './realtime.js';
 
 export function pushSupport() {
   if (!('serviceWorker' in navigator)) return { ok: false, reason: 'This browser has no service worker support.' };
@@ -22,10 +26,22 @@ export function pushSupport() {
   if (!('PushManager' in window) || !('Notification' in window)) {
     return { ok: false, reason: 'Push notifications are not supported here (iOS needs 16.4 or newer).' };
   }
-  if (CONFIG.VAPID_PUBLIC_KEY.startsWith('YOUR-')) {
-    return { ok: false, reason: 'Push is not configured yet: add your VAPID public key to js/config.js.' };
-  }
   return { ok: true, reason: null };
+}
+
+let publicKey = CONFIG.VAPID_PUBLIC_KEY || null;
+/** The server's public signing key. Asks send-push to create the pair if it doesn't exist yet. */
+async function serverKey() {
+  if (publicKey) return publicKey;
+  const fetchKey = async () => unwrap(await supabase.rpc('push_public_key'));
+  let key = await fetchKey();
+  if (!key) {
+    await supabase.functions.invoke('send-push', { body: {} });
+    key = await fetchKey();
+  }
+  if (!key) throw new Error('Alerts aren’t ready on the server yet. Try again in a minute.');
+  publicKey = key;
+  return key;
 }
 
 export const pushPermission = () => ('Notification' in window ? Notification.permission : 'unsupported');
@@ -65,7 +81,7 @@ export async function enablePush() {
 
   const reg = await navigator.serviceWorker.ready;
   let sub = await reg.pushManager.getSubscription();
-  const key = urlB64ToUint8Array(CONFIG.VAPID_PUBLIC_KEY);
+  const key = urlB64ToUint8Array(await serverKey());
 
   // If the server key changed, the old subscription is useless.
   if (sub && sub.options?.applicationServerKey) {
@@ -113,4 +129,45 @@ export function listenToServiceWorker(navigate) {
       toast(msg.payload?.title || 'New activity', { tone: 'love' });
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Push relay: when something I do creates an alert for my partner (a voice
+// note, a ping, a dinner match…), the database adds a row to push_outbox
+// that only I can see. Realtime tells this phone, and we ask send-push to
+// deliver it. Batched so a burst of actions makes one call.
+// ---------------------------------------------------------------------------
+let relayTimer = 0;
+let relayBusy = false;
+let relayAgain = false;
+
+async function flushOutbox() {
+  if (relayBusy) { relayAgain = true; return; }
+  relayBusy = true;
+  try {
+    const { error } = await supabase.functions.invoke('send-push', { body: {} });
+    if (error) console.warn('[push] relay', error.message || error);
+  } catch (err) {
+    console.warn('[push] relay', err);
+  } finally {
+    relayBusy = false;
+    if (relayAgain) { relayAgain = false; scheduleFlush(); }
+  }
+}
+
+function scheduleFlush(ms = 400) {
+  clearTimeout(relayTimer);
+  relayTimer = setTimeout(flushOutbox, ms);
+}
+
+let relayStarted = false;
+export function startPushRelay() {
+  if (relayStarted) return;
+  relayStarted = true;
+  onTable('push_outbox', (row, _old, type) => {
+    if (type === 'INSERT' && row?.sender_id === store.get().session?.user?.id && !row.sent_at) scheduleFlush();
+  });
+  // Catch anything queued while the socket was asleep.
+  onResync(() => scheduleFlush(1500));
+  scheduleFlush(2500);
 }

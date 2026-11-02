@@ -9,7 +9,7 @@
  *  4. Android share target: forward shared text/links into the app.
  */
 
-const VERSION = 'v1.2.0';
+const VERSION = 'v1.3.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -42,7 +42,11 @@ const SHELL_ASSETS = [
   '/js/money/bills.js',
   '/js/money/spending.js',
   '/js/money/funds.js',
-  '/js/views/placeholder.js',
+  '/js/views/discover.js',
+  '/js/discover/inbox.js',
+  '/js/discover/tiktok.js',
+  '/js/discover/lists.js',
+  '/js/discover/connect.js',
   '/js/views/settings.js',
   '/js/spark/common.js',
   '/js/spark/question.js',
@@ -166,12 +170,13 @@ async function cacheFirst(request) {
 
 // ---------------------------------------------------------------------------
 // Web Push
-// Payload contract (sent by the send-push Edge Function in Phase 4):
+// Payload contract (sent by the send-push and universal-inbox Edge Functions):
 // {
 //   "title": "Thinking of you 💭",
 //   "body":  "Your partner sent love",
 //   "kind":  "love" | "thinking_of_you" | "need_cuddles" | "need_hype" |
-//            "tiktok" | "bill_due" | "question_answered" | "dinner_match" | "generic",
+//            "tiktok" | "bill_due" | "question_answered" | "dinner_match" |
+//            "voice_note" | "memory" | "task" | "coupon" | "generic",
 //   "url":   "/#/spark",
 //   "tag":   "love-ping",        // optional: collapses repeat notifications
 //   "image": "https://…",        // optional (Android only)
@@ -187,6 +192,10 @@ const KIND_DEFAULTS = {
   bill_due:          { title: 'Bill due tomorrow 🧾',   url: '/#/money' },
   question_answered: { title: 'Daily question answered 🔓', url: '/#/spark' },
   dinner_match:      { title: "It's a dinner match! 🍽️", url: '/#/spark' },
+  voice_note:        { title: 'New voice note 🎙️',     url: '/#/spark' },
+  memory:            { title: 'New polaroid 📸',        url: '/#/spark' },
+  task:              { title: 'Bounty board 🪙',        url: '/#/spark' },
+  coupon:            { title: 'Coupon redeemed 🎟️',    url: '/#/spark' },
   generic:           { title: 'Us',                     url: '/' }
 };
 

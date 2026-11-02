@@ -23,7 +23,8 @@ export class HttpError extends Error {
 /**
  * A Supabase client that acts AS the caller: it forwards their JWT, so Row
  * Level Security applies to every query exactly as it does in the app.
- * Edge Functions never use the service-role key in this project.
+ * The service-role key is used in one place only: reading the push
+ * signing keys in _shared/push.ts.
  */
 export async function userClient(req: Request): Promise<{ db: SupabaseClient; userId: string }> {
   const auth = req.headers.get('Authorization') ?? '';

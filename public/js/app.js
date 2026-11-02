@@ -18,7 +18,7 @@ import { connectRealtime, onTable, onBroadcast, onResync } from './realtime.js';
 import { initWallpaperEngine, loadWallpapers, onWallpaperRow, onWallpaperPreview } from './wallpaper.js';
 import { initAutoLock, mountLockScreen } from './lock.js';
 import { initRouter, navigate } from './router.js';
-import { listenToServiceWorker, syncPushSubscription } from './push.js';
+import { listenToServiceWorker, syncPushSubscription, startPushRelay } from './push.js';
 
 const gate = document.getElementById('gate');
 const app = document.getElementById('app');
@@ -139,6 +139,7 @@ async function enterApp() {
 
   loadWallpapers().catch((err) => console.warn('[wallpaper] load failed', err));
   syncPushSubscription();
+  startPushRelay();
   startHeartbeat();
   handleLaunchParams();
   requestAnimationFrame(() => document.body.classList.add('app-ready'));
@@ -163,8 +164,8 @@ function handleLaunchParams() {
   if (params.get('share')) {
     const shared = params.get('url') || params.get('text') || params.get('title');
     if (shared) {
-      sessionStorage.setItem('us.pendingShare', JSON.stringify({ title: params.get('title'), text: params.get('text'), url: params.get('url') }));
-      toast('Saved. The smart inbox arrives in Phase 4.', { ms: 4000 });
+      try { sessionStorage.setItem('us.pendingShare', JSON.stringify({ title: params.get('title'), text: params.get('text'), url: params.get('url') })); } catch { /* private mode */ }
+      window.dispatchEvent(new CustomEvent('us:share'));
     }
   }
   if (params.toString()) history.replaceState(null, '', location.pathname + location.hash);

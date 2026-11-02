@@ -13,7 +13,7 @@ export const TABS = [
   { id: 'vault',    label: 'Vault',    icon: 'vault',    load: () => import('./views/vault.js') },
   { id: 'money',    label: 'Money',    icon: 'money',    load: () => import('./views/money.js') },
   { id: 'wishlist', label: 'Wishlist', icon: 'wishlist', load: () => import('./views/wishlist.js') },
-  { id: 'discover', label: 'Discover', icon: 'discover', load: () => import('./views/placeholder.js') }
+  { id: 'discover', label: 'Discover', icon: 'discover', load: () => import('./views/discover.js') }
 ];
 const TAB_IDS = TABS.map((t) => t.id);
 
