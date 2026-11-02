@@ -122,8 +122,12 @@ begin
 end $$;
 
 -- Records a payment for the current period and advances the bill.
+-- p_period is the due date the phone showed. If both partners tap "Paid" on
+-- the same bill at once, the second call sees the date already moved on and
+-- is rejected, instead of silently paying next month's period too.
 -- SECURITY INVOKER: Row Level Security still applies to every statement.
-create or replace function public.pay_bill(p_bill_id uuid, p_amount_cents bigint default null)
+drop function if exists public.pay_bill(uuid, bigint);
+create or replace function public.pay_bill(p_bill_id uuid, p_amount_cents bigint default null, p_period date default null)
 returns public.bills language plpgsql security invoker set search_path = '' as $$
 declare
   v_bill public.bills;
@@ -131,6 +135,9 @@ begin
   select * into v_bill from public.bills where id = p_bill_id for update;
   if v_bill.id is null then raise exception 'bill not found'; end if;
   if not v_bill.active then raise exception 'this bill is already settled'; end if;
+  if p_period is not null and v_bill.next_due_on is distinct from p_period then
+    raise exception 'already marked paid' using errcode = 'P0001', hint = 'stale_period';
+  end if;
 
   insert into public.bill_payments (couple_id, bill_id, period_due_on, amount_cents)
   values (v_bill.couple_id, v_bill.id, v_bill.next_due_on, coalesce(p_amount_cents, v_bill.amount_cents));
@@ -225,6 +232,34 @@ returns bigint language sql stable security invoker set search_path = '' as $$
   where couple_id = (select couple_id from public.profiles where id = auth.uid())
 $$;
 
+-- Records a settle-up for the balance the phone showed. Calls from both
+-- phones are serialized per couple; the second one sees a zero (or changed)
+-- balance and is rejected, so one real transfer is never recorded twice.
+create or replace function public.settle_up(p_expected_cents bigint)
+returns public.settlements language plpgsql security invoker set search_path = '' as $$
+declare
+  v_me uuid := auth.uid();
+  v_couple uuid := (select couple_id from public.profiles where id = auth.uid());
+  v_partner uuid;
+  v_net bigint;
+  v_row public.settlements;
+begin
+  if v_couple is null then raise exception 'pair with your partner first'; end if;
+  perform pg_advisory_xact_lock(hashtext('settle:' || v_couple::text));
+  select id into v_partner from public.profiles where couple_id = v_couple and id <> v_me limit 1;
+  if v_partner is null then raise exception 'pair with your partner first'; end if;
+  v_net := public.settle_balance();
+  if v_net = 0 then raise exception 'already settled'; end if;
+  if v_net <> p_expected_cents then raise exception 'the balance just changed, check the new amount'; end if;
+  insert into public.settlements (couple_id, from_user, to_user, amount_cents, note)
+  values (v_couple,
+          case when v_net > 0 then v_partner else v_me end,
+          case when v_net > 0 then v_me else v_partner end,
+          abs(v_net), 'Settle up')
+  returning * into v_row;
+  return v_row;
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 7. Wishlist boards: one personal Amazon board per partner, plus shared
 --    Restaurants / Vacations / Events boards. Called by the app on open;
@@ -258,12 +293,27 @@ begin
   return query select * from public.wishlist_boards where couple_id = v_couple order by sort, created_at;
 end $$;
 
+-- A restaurant removed from the wishlist leaves the dinner deck too.
+create or replace function public.retire_wishlist_meal()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  update public.meal_options set active = false
+   where wishlist_item_id = old.id and couple_id = old.couple_id;
+  return old;
+end $$;
+
+drop trigger if exists wishlist_items_retire_meal on public.wishlist_items;
+create trigger wishlist_items_retire_meal
+  before delete on public.wishlist_items
+  for each row execute function public.retire_wishlist_meal();
+
 -- ---------------------------------------------------------------------
 -- 8. Privileges
 -- ---------------------------------------------------------------------
 revoke all on function public.is_couple_member(uuid) from public, anon;
 revoke all on function public.next_bill_date(date, text, smallint) from public, anon;
-revoke all on function public.pay_bill(uuid, bigint) from public, anon;
+revoke all on function public.pay_bill(uuid, bigint, date) from public, anon;
+revoke all on function public.settle_up(bigint) from public, anon;
 revoke all on function public.undo_bill_payment(uuid) from public, anon;
 revoke all on function public.fund_adjust(uuid, bigint) from public, anon;
 revoke all on function public.budget_month(date) from public, anon;
@@ -271,7 +321,8 @@ revoke all on function public.settle_balance() from public, anon;
 revoke all on function public.ensure_wishlist_boards() from public, anon;
 grant execute on function public.is_couple_member(uuid) to authenticated;
 grant execute on function public.next_bill_date(date, text, smallint) to authenticated;
-grant execute on function public.pay_bill(uuid, bigint) to authenticated;
+grant execute on function public.pay_bill(uuid, bigint, date) to authenticated;
+grant execute on function public.settle_up(bigint) to authenticated;
 grant execute on function public.undo_bill_payment(uuid) to authenticated;
 grant execute on function public.fund_adjust(uuid, bigint) to authenticated;
 grant execute on function public.budget_month(date) to authenticated;
@@ -279,6 +330,7 @@ grant execute on function public.settle_balance() to authenticated;
 grant execute on function public.ensure_wishlist_boards() to authenticated;
 revoke all on function public.guard_money_rows() from public, anon, authenticated;
 revoke all on function public.guard_wishlist_claim() from public, anon, authenticated;
+revoke all on function public.retire_wishlist_meal() from public, anon, authenticated;
 
 -- Bill payments are written by pay_bill() (invoker) and removed by
 -- undo_bill_payment(); clients never edit an existing payment row.

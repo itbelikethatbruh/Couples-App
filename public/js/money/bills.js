@@ -63,12 +63,15 @@ export function mount(host) {
       e.stopPropagation();
       pay.disabled = true;
       try {
-        const next = unwrap(await supabase.rpc('pay_bill', { p_bill_id: b.id }));
+        const next = unwrap(await supabase.rpc('pay_bill', { p_bill_id: b.id, p_period: b.next_due_on }));
         haptic([8, 30, 8]);
         const r = pay.getBoundingClientRect();
         burst({ kind: 'match', count: 18, originX: r.left + r.width / 2, originY: r.top });
         toast(next?.active === false ? `${b.name} paid ✓` : `${b.name} paid ✓ Next due ${new Date(`${next.next_due_on}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}`, { tone: 'ok' });
-      } catch (err) { toast(err.message, { tone: 'error' }); pay.disabled = false; }
+      } catch (err) {
+        if (/already marked paid/.test(err.message)) { toast(`${b.name} was already marked paid`, { tone: 'ok' }); return; }
+        toast(err.message, { tone: 'error' }); pay.disabled = false;
+      }
     });
     const row = h('button.bill-row.due-' + due.tone, { type: 'button' },
       h('span.bill-icon', { 'aria-hidden': 'true', style: { '--c': BUCKETS[b.bucket]?.color } }, (b.name || '?').trim().charAt(0).toUpperCase()),

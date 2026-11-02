@@ -93,8 +93,6 @@ const validDate = (s: string | null) => {
 
 serve(async (req) => {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) throw new HttpError(503, 'Receipt scanning is not set up yet (missing ANTHROPIC_API_KEY).');
-
   const { db } = await userClient(req);
   const body = await req.json().catch(() => ({}));
   const receiptId = typeof body?.receipt_id === 'string' ? body.receipt_id : '';
@@ -104,18 +102,22 @@ serve(async (req) => {
   if (error) throw new HttpError(400, error.message);
   if (!receipt) throw new HttpError(404, 'Receipt not found');
 
-  // Per-couple daily cap (counts scans that reached the AI today).
-  const since = new Date(Date.now() - 86_400_000).toISOString();
-  const { count } = await db.from('receipts').select('id', { count: 'exact', head: true })
-    .not('ai_raw', 'is', null).gte('updated_at', since);
-  if ((count ?? 0) >= DAILY_LIMIT) throw new HttpError(429, 'Daily scan limit reached. Enter this one by hand.');
-
-  await db.from('receipts').update({ status: 'processing', error: null }).eq('id', receiptId);
-
+  // Every early exit from here on marks the receipt as failed, so the app
+  // shows Review / Retry / Discard instead of a receipt stuck "scanning".
   const fail = async (message: string, status = 422) => {
     await db.from('receipts').update({ status: 'error', error: message }).eq('id', receiptId);
     return json({ error: message }, status);
   };
+
+  if (!apiKey) return fail('Receipt scanning is not set up yet (missing ANTHROPIC_API_KEY). Review it to enter it by hand.', 503);
+
+  // Per-couple daily cap (counts scans that reached the AI today).
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const { count } = await db.from('receipts').select('id', { count: 'exact', head: true })
+    .not('ai_raw', 'is', null).gte('updated_at', since);
+  if ((count ?? 0) >= DAILY_LIMIT) return fail('Daily scan limit reached. Review it to enter it by hand.', 429);
+
+  await db.from('receipts').update({ status: 'processing', error: null }).eq('id', receiptId);
 
   const { data: file, error: dlError } = await db.storage.from('receipts').download(receipt.storage_path);
   if (dlError || !file) return fail('Could not read the receipt photo.', 404);

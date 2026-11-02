@@ -69,11 +69,15 @@ export function mount(host) {
       { confirmLabel: 'Mark as paid' });
     if (!ok) return;
     try {
-      unwrap(await supabase.from('settlements').insert({ from_user: from, to_user: to, amount_cents: amount, note: 'Settle up' }));
+      unwrap(await supabase.rpc('settle_up', { p_expected_cents: net }));
       haptic([10, 40, 10]);
       burst({ kind: 'match', count: 34 });
       toast('All square ✨', { tone: 'ok' });
-    } catch (err) { toast(err.message, { tone: 'error' }); }
+    } catch (err) {
+      if (/already settled/.test(err.message)) toast('Already settled up on the other phone', { tone: 'ok' });
+      else if (/balance just changed/.test(err.message)) { toast('The balance just changed. Check the new amount.', { tone: 'error' }); load(); }
+      else toast(err.message, { tone: 'error' });
+    }
   }
 
   async function openHistory() {

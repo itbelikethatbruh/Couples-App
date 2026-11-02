@@ -33,9 +33,39 @@ function assertPublicUrl(raw: string): URL {
   return u;
 }
 
+// True for addresses that must never be fetched: private, loopback,
+// link-local, CGNAT, multicast, reserved, and IPv4-mapped IPv6 forms.
+function isPrivateIp(ip: string): boolean {
+  const v4 = ip.match(/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/i);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+      (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19));
+  }
+  const v6 = ip.toLowerCase();
+  return v6 === '::' || v6 === '::1' || v6.startsWith('fc') || v6.startsWith('fd') ||
+    v6.startsWith('fe8') || v6.startsWith('fe9') || v6.startsWith('fea') || v6.startsWith('feb') ||
+    v6.startsWith('ff') || v6.startsWith('::ffff:') || v6.startsWith('64:ff9b:');
+}
+
+// Resolve the host and refuse it if any address is non-public, so a public
+// looking name that points at an internal IP is rejected before the fetch.
+async function assertResolvesPublic(host: string): Promise<void> {
+  const lookups = await Promise.allSettled([
+    Deno.resolveDns(host, 'A'),
+    Deno.resolveDns(host, 'AAAA')
+  ]);
+  const addrs = lookups.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  if (!addrs.length) throw new HttpError(400, 'That website could not be found');
+  if (addrs.some(isPrivateIp)) throw new HttpError(400, 'That link points to a private address');
+}
+
 async function fetchPage(start: URL): Promise<{ finalUrl: URL; html: string; status: number }> {
   let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    await assertResolvesPublic(url.hostname);
     const res = await fetch(url, {
       redirect: 'manual',
       signal: AbortSignal.timeout(8000),
