@@ -831,6 +831,7 @@ select.input { appearance: none; -webkit-appearance: none; padding-right: 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;                          /* Safari < 18 ignores "safe" */
   justify-content: safe center;                     /* never clips the top when it overflows */
   gap: 10px;
   padding: calc(var(--safe-top) + 24px) 24px calc(var(--safe-bottom) + 24px);
